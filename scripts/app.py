@@ -20,12 +20,12 @@ FORMATION = {
 
 FIELD_SLOTS = {
     "GK": [(50, 88)],
-    "LB": [(18, 70)],
-    "CB": [(40, 70), (60, 70)],
-    "RB": [(82, 70)],
-    "CM": [(30, 48), (50, 42), (70, 48)],
-    "LW": [(20, 22)],
-    "RW": [(80, 22)],
+    "LB": [(25, 72)],
+    "CB": [(42, 76), (58, 76)],
+    "RB": [(75, 72)],
+    "CM": [(30, 52), (50, 46), (70, 52)],
+    "LW": [(25, 25)],
+    "RW": [(75, 25)],
     "ST": [(50, 12)],
 }
 
@@ -77,7 +77,22 @@ def get_players(conn, lustrum_start, league_id, team_name):
     return [dict(r) for r in cur.fetchall()]
 
 
+
+def get_team_asset(conn, team_name, lustrum_start):
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT logo_url, kit_url
+        FROM team_assets
+        WHERE team_name = ?
+          AND lustrum_start = ?
+        LIMIT 1
+    """, (team_name, lustrum_start))
+    row = cur.fetchone()
+    return dict(row) if row else {"logo_url": None, "kit_url": None}
+
+
 def squad_complete(selected_positions):
+
     return all(len(selected_positions[p]) >= req for p, req in FORMATION.items())
 
 
@@ -179,37 +194,232 @@ def initialize_game():
     st.session_state.round = 1
     st.session_state.current_team = None
     st.session_state.current_players = []
+    st.session_state.spinning = False
     st.session_state.page = "draft"
 
 
-def render_pitch(selected_positions):
-    pitch = """
-    <div style="position:relative;width:100%;height:700px;
-    background:#17853b;border:4px solid white;border-radius:12px;">
-    """
-    for pos, players in selected_positions.items():
-        for idx, (x, y) in enumerate(FIELD_SLOTS[pos]):
-            if idx < len(players):
-                p = players[idx]
-                label = (
-                    f"{p['player_name']}"
-                    f"<br><small>{p['team_name']}</small>"
-                    f"<br><small>{p['lustrum_start']}-{p['lustrum_start'] + 4}</small>"
-                    f"<br><small>OVR {p['avg_overall']}</small>"
-                )
-                bg = "#fff"
-            else:
-                label = pos
-                bg = "#d9d9d9"
 
-            pitch += f"""
-            <div style="position:absolute;left:{x}%;top:{y}%;
-            transform:translate(-50%,-50%);background:{bg};
-            padding:8px;border-radius:8px;width:110px;font-size:10px;text-align:center;">
-            {label}</div>
-            """
+def load_random_team(conn):
+
+    while True:
+
+        team = get_random_team(
+            conn,
+            st.session_state.league["league_id"]
+        )
+
+        players = get_players(
+            conn,
+            team["lustrum_start"],
+            team["league_id"],
+            team["team_name"]
+        )
+
+        available = build_available_players(
+            players,
+            st.session_state.selected_players,
+            st.session_state.selected_positions
+        )
+
+        if available:
+            team_asset = get_team_asset(
+                conn,
+                team["team_name"],
+                team["lustrum_start"]
+            )
+            team["logo_url"] = team_asset.get("logo_url")
+            team["kit_url"] = team_asset.get("kit_url")
+            st.session_state.current_team = team
+            st.session_state.current_players = available
+            return
+
+
+def render_pitch(selected_positions):
+
+    def ovr_color(ovr):
+        if ovr >= 90:
+            return "#2e7d32"   # verde
+        elif ovr >= 80:
+            return "#f57c00"   # naranja
+        elif ovr >= 70:
+            return "#fbc02d"   # amarillo
+        else:
+            return "#d32f2f"   # rojo
+
+    pitch = """
+    <div style="
+        position:relative;
+        width:100%;
+        height:700px;
+        background:
+            repeating-linear-gradient(
+                0deg,
+                #1d8f3e 0px,
+                #1d8f3e 80px,
+                #239b45 80px,
+                #239b45 160px
+            );
+        border:4px solid white;
+        border-radius:12px;
+        overflow:hidden;
+    ">
+
+        <div style="
+            position:absolute;
+            bottom:0;
+            left:20%;
+            width:60%;
+            height:22%;
+            border:3px solid white;
+            box-sizing:border-box;
+        "></div>
+
+        <div style="
+            position:absolute;
+            bottom:0;
+            left:35%;
+            width:30%;
+            height:10%;
+            border:3px solid white;
+            box-sizing:border-box;
+        "></div>
+
+        <div style="
+            position:absolute;
+            bottom:16%;
+            left:50%;
+            width:8px;
+            height:8px;
+            background:white;
+            border-radius:50%;
+            transform:translate(-50%,50%);
+        "></div>
+
+        <div style="
+            position:absolute;
+            bottom:13%;
+            left:50%;
+            width:88px;
+            height:60px;
+            border:3px solid white;
+            border-bottom:none;
+            border-radius:120px 120px 0 0;
+            transform:translateX(-50%);
+        "></div>
+
+        <div style="
+            position:absolute;
+            top:0;
+            left:0;
+            width:100%;
+            height:3px;
+            background:white;
+        "></div>
+
+        <div style="
+            position:absolute;
+            top:-70px;
+            left:50%;
+            width:140px;
+            height:140px;
+            border:3px solid white;
+            border-radius:50%;
+            transform:translateX(-50%);
+        "></div>
+    """
+
+    for pos, players in selected_positions.items():
+
+        for idx, (x, y) in enumerate(FIELD_SLOTS[pos]):
+
+            if idx < len(players):
+
+                p = players[idx]
+                color = ovr_color(float(p["avg_overall"]))
+
+                kit_html = ""
+                if p.get("kit_url"):
+                    kit_html = f'<img src="{p["kit_url"]}" style="height:70px;margin-bottom:4px;">'
+
+                label = f"""
+                {kit_html}
+                <div style="
+                    font-weight:700;
+                    font-size:7px;
+                    color:#111;
+                    margin-bottom:2px;
+                ">
+                    {p['player_name']}
+                </div>
+
+                <div style="
+                    font-size:8px;
+                    color:#666;
+                    margin-bottom:1px;
+                ">
+                    {p['team_name']}
+                </div>
+
+                <div style="
+                    font-size:7px;
+                    color:#777;
+                    margin-bottom:4px;
+                ">
+                    {p['lustrum_start']}-{p['lustrum_start'] + 4}
+                </div>
+
+                <span style="
+                    background:{color};
+                    color:white;
+                    padding:3px 8px;
+                    border-radius:6px;
+                    font-weight:700;
+                    font-size:11px;
+                ">
+                    OVR {round(p['avg_overall'])}
+                </span>
+                """
+
+                pitch += f"""
+                <div style="
+                    position:absolute;
+                    left:{x}%;
+                    top:{y}%;
+                    transform:translate(-50%,-50%);
+                    background:white;
+                    border-radius:12px;
+                    width:88px;
+                    padding:4px;
+                    text-align:center;
+                    box-shadow:0 3px 8px rgba(0,0,0,.25);
+                ">
+                    {label}
+                </div>
+                """
+
+            else:
+
+                pitch += f"""
+                <div style="
+                    position:absolute;
+                    left:{x}%;
+                    top:{y}%;
+                    transform:translate(-50%,-50%);
+                    background:rgba(255,255,255,.75);
+                    border-radius:8px;
+                    width:60px;
+                    padding:4px;
+                    text-align:center;
+                    font-size:8px;
+                    font-weight:700;
+                ">
+                    {pos}
+                </div>
+                """
+
     pitch += "</div>"
-    html(pitch, height=550)
+
+    html(pitch, height=730)
 
 
 st.set_page_config(page_title="Draft Histórico", layout="wide")
@@ -251,41 +461,70 @@ elif st.session_state.page == "draft":
 
     if st.session_state.current_team is None:
 
-        while True:
+        st.markdown("## 🎰 Sorteo de equipo")
 
-            team = get_random_team(
-                conn,
-                st.session_state.league["league_id"]
-            )
+        slot = st.empty()
 
-            players = get_players(
-                conn,
-                team["lustrum_start"],
-                team["league_id"],
-                team["team_name"]
-            )
+        if st.button(
+            "Girar ruleta",
+            type="primary",
+            use_container_width=True
+        ):
 
-            available = build_available_players(
-                players,
-                st.session_state.selected_players,
-                st.session_state.selected_positions
-            )
+            import time
 
-            if available:
-                st.session_state.current_team = team
-                st.session_state.current_players = available
-                break
+            for _ in range(25):
+
+                fake_team = get_random_team(
+                    conn,
+                    st.session_state.league["league_id"]
+                )
+
+                fake_asset = get_team_asset(conn,fake_team['team_name'],fake_team['lustrum_start'])
+                logo = fake_asset.get('logo_url') or ''
+                slot.markdown(
+                    f"""
+                    <div style="
+                        background:#111;
+                        color:white;
+                        text-align:center;
+                        padding:20px;
+                        border-radius:12px;
+                        font-size:32px;
+                        font-weight:700;
+                    ">
+                        <div style="display:flex;gap:20px;justify-content:center;align-items:center;">
+                          <div style="background:#222;padding:15px;border-radius:10px;min-width:140px;">
+                            <img src="{logo}" style="height:80px;">
+                          </div>
+                          <div style="background:#222;padding:15px;border-radius:10px;min-width:140px;">
+                            {fake_team['lustrum_start']}-{fake_team['lustrum_start']+4}
+                          </div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                time.sleep(0.08)
+
+            load_random_team(conn)
+
+            st.rerun()
+
+        st.stop()
 
     team = st.session_state.current_team
 
     st.subheader(f"Ronda {st.session_state.round}/11")
 
-    st.caption(
-    f"{team['lustrum_start']}-{team['lustrum_start'] + 4}"
-    )
-    st.markdown(
-    f"# {team['team_name']}"
-    )
+    c_logo, c_title = st.columns([1,5])
+    with c_logo:
+        if team.get("logo_url"):
+            st.image(team["logo_url"], width=80)
+    with c_title:
+        st.markdown(f"# {team['team_name']}")
+        st.caption(f"{team['lustrum_start']}-{team['lustrum_start'] + 4}")
 
     render_pitch(st.session_state.selected_positions)
 
@@ -309,10 +548,10 @@ elif st.session_state.page == "draft":
 
         st.markdown(f"## {pos}")
 
-        for i in range(0, len(players), 4):
+        for i in range(0, len(players), 6):
 
-            row_players = players[i:i + 4]
-            cols = st.columns(len(row_players))
+            row_players = players[i:i + 6]
+            cols = st.columns(6)
 
             for col, player in zip(cols, row_players):
 
@@ -320,31 +559,36 @@ elif st.session_state.page == "draft":
 
                     with st.container(border=True):
 
-                        st.write(f"**{player['player_name']}**")
-
-                        st.caption(
-                            f"{player['team_name']} "
-                            f"({player['lustrum_start']}-{player['lustrum_start'] + 4})"
-                        )
-
-                        st.caption(
-                            f"{player['tactical_position']} • OVR {player['avg_overall']}"
+                        st.markdown(
+                            f"**{player['player_name']}**  \n"
+                            f"OVR {player['avg_overall']:.1f}"
                         )
 
                         if st.button(
                             "Elegir",
                             key=(
-                                    f"pick_"
-                                    f"{player['lustrum_start']}_"
-                                    f"{team['league_id']}_"
-                                    f"{player['team_name']}_"
-                                    f"{player['player_name']}_"
-                                    f"{player['tactical_position']}"
+                                f"pick_"
+                                f"{player['lustrum_start']}_"
+                                f"{team['league_id']}_"
+                                f"{player['team_name']}_"
+                                f"{player['player_name']}_"
+                                f"{player['tactical_position']}_"
+                                f"{player['player_id']}"
                                 )
                             ):
 
                                 st.session_state.selected_players.add(player["player_id"])
+                                
+                                asset = get_team_asset(
+                                    conn,
+                                    player["team_name"],
+                                    player["lustrum_start"]
+                                )
+                                player["logo_url"] = asset.get("logo_url")
+                                player["kit_url"] = asset.get("kit_url")
+
                                 st.session_state.selected_positions[player["tactical_position"]].append(player)
+
 
                                 st.session_state.round += 1
                                 st.session_state.current_team = None
