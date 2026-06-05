@@ -76,42 +76,18 @@ def get_players(conn, lustrum_start, league_id, team_name):
     """, (lustrum_start, league_id, team_name))
     return [dict(r) for r in cur.fetchall()]
 
+
 def get_team_asset(conn, team_name, lustrum_start):
-
     cur = conn.cursor()
-
-    try:
-
-        cur.execute("""
-            SELECT logo_url, kit_url
-            FROM team_assets
-            WHERE team_name = ?
-              AND lustrum_start = ?
-            LIMIT 1
-        """, (team_name, lustrum_start))
-
-        row = cur.fetchone()
-
-        return dict(row) if row else {
-            "logo_url": None,
-            "kit_url": None
-        }
-
-    except Exception as e:
-        st.error(f"ERROR TEAM_ASSETS: {e}")
-        raise
-
-#def get_team_asset(conn, team_name, lustrum_start):
-#      cur = conn.cursor()
-#    cur.execute("""
-#        SELECT logo_url, kit_url
-#        FROM team_assets
-#        WHERE team_name = ?
-#          AND lustrum_start = ?
-#        LIMIT 1
-#    """, (team_name, lustrum_start))
-#    row = cur.fetchone()
-#    return dict(row) if row else {"logo_url": None, "kit_url": None}
+    cur.execute("""
+        SELECT logo_url, kit_url
+        FROM team_assets
+        WHERE team_name = ?
+          AND lustrum_start = ?
+        LIMIT 1
+    """, (team_name, lustrum_start))
+    row = cur.fetchone()
+    return dict(row) if row else {"logo_url": None, "kit_url": None}
 
 
 def squad_complete(selected_positions):
@@ -448,6 +424,22 @@ def render_pitch(selected_positions):
 st.set_page_config(page_title="Draft Histórico", layout="wide")
 
 conn = get_connection()
+import os
+
+st.write("PWD:", os.getcwd())
+st.write("DB_PATH:", DB_PATH)
+st.write("EXISTS:", os.path.exists(DB_PATH))
+st.write("SIZE:", os.path.getsize(DB_PATH))
+cur = conn.cursor()
+
+cur.execute("""
+SELECT name
+FROM sqlite_master
+WHERE type='table'
+ORDER BY name
+""")
+
+st.write("TABLAS CLOUD:", [r[0] for r in cur.fetchall()])
 
 if "page" not in st.session_state:
     st.session_state.page = "league"
