@@ -6,14 +6,6 @@ from streamlit.components.v1 import html
 from streamlit_javascript import st_javascript
 
 import subprocess
-import streamlit as st
-
-try:
-    commit = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"]
-    ).decode().strip()
-
-    st.write("COMMIT CLOUD:", commit)
 
 except Exception as e:
     st.write(e)
@@ -45,7 +37,7 @@ FIELD_SLOTS = {
 POSITION_ORDER = ["GK", "LB", "CB", "RB", "CM", "LW", "RW", "ST"]
 
 
-@st.cache_resource
+#@st.cache_resource
 def get_connection():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
