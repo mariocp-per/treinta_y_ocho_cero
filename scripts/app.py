@@ -5,6 +5,19 @@ import streamlit as st
 from streamlit.components.v1 import html
 from streamlit_javascript import st_javascript
 
+import subprocess
+import streamlit as st
+
+try:
+    commit = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"]
+    ).decode().strip()
+
+    st.write("COMMIT CLOUD:", commit)
+
+except Exception as e:
+    st.write(e)
+
 DB_PATH = "database/futbol380.db"
 
 FORMATION = {
