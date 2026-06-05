@@ -424,22 +424,6 @@ def render_pitch(selected_positions):
 st.set_page_config(page_title="Draft Histórico", layout="wide")
 
 conn = get_connection()
-import os
-
-st.write("PWD:", os.getcwd())
-st.write("DB_PATH:", DB_PATH)
-st.write("EXISTS:", os.path.exists(DB_PATH))
-st.write("SIZE:", os.path.getsize(DB_PATH))
-cur = conn.cursor()
-
-cur.execute("""
-SELECT name
-FROM sqlite_master
-WHERE type='table'
-ORDER BY name
-""")
-
-st.write("TABLAS CLOUD:", [r[0] for r in cur.fetchall()])
 
 if "page" not in st.session_state:
     st.session_state.page = "league"
