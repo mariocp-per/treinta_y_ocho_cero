@@ -76,19 +76,42 @@ def get_players(conn, lustrum_start, league_id, team_name):
     """, (lustrum_start, league_id, team_name))
     return [dict(r) for r in cur.fetchall()]
 
-
-
 def get_team_asset(conn, team_name, lustrum_start):
+
     cur = conn.cursor()
-    cur.execute("""
-        SELECT logo_url, kit_url
-        FROM team_assets
-        WHERE team_name = ?
-          AND lustrum_start = ?
-        LIMIT 1
-    """, (team_name, lustrum_start))
-    row = cur.fetchone()
-    return dict(row) if row else {"logo_url": None, "kit_url": None}
+
+    try:
+
+        cur.execute("""
+            SELECT logo_url, kit_url
+            FROM team_assets
+            WHERE team_name = ?
+              AND lustrum_start = ?
+            LIMIT 1
+        """, (team_name, lustrum_start))
+
+        row = cur.fetchone()
+
+        return dict(row) if row else {
+            "logo_url": None,
+            "kit_url": None
+        }
+
+    except Exception as e:
+        st.error(f"ERROR TEAM_ASSETS: {e}")
+        raise
+
+#def get_team_asset(conn, team_name, lustrum_start):
+#      cur = conn.cursor()
+#    cur.execute("""
+#        SELECT logo_url, kit_url
+#        FROM team_assets
+#        WHERE team_name = ?
+#          AND lustrum_start = ?
+#        LIMIT 1
+#    """, (team_name, lustrum_start))
+#    row = cur.fetchone()
+#    return dict(row) if row else {"logo_url": None, "kit_url": None}
 
 
 def squad_complete(selected_positions):
