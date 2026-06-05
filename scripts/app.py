@@ -5,10 +5,7 @@ import streamlit as st
 from streamlit.components.v1 import html
 from streamlit_javascript import st_javascript
 
-import subprocess
 
-except Exception as e:
-    st.write(e)
 
 DB_PATH = "database/futbol380.db"
 
