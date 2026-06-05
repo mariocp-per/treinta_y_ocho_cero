@@ -205,11 +205,11 @@ def render_pitch(selected_positions):
             pitch += f"""
             <div style="position:absolute;left:{x}%;top:{y}%;
             transform:translate(-50%,-50%);background:{bg};
-            padding:8px;border-radius:8px;width:160px;text-align:center;">
+            padding:8px;border-radius:8px;width:110px;font-size:10px;text-align:center;">
             {label}</div>
             """
     pitch += "</div>"
-    html(pitch, height=720)
+    html(pitch, height=550)
 
 
 st.set_page_config(page_title="Draft Histórico", layout="wide")
